@@ -429,11 +429,12 @@ model2 <- lm(log(MSRP) ~ .-ID, data=train1)
 # Stepwise Selection ------------------------------------------------------------------------------------------------------
 model2_step <- stepAIC(model2, direction='both')
 #summary(model2_step)
+confint(model2_step)
 
 # Model2_step Selection ---------------------------------------------------------------------------------------------------
 par(mfrow=c(2,2))
 plot(model2_step)
-ggplot(train1, aes(x=model2_step$residuals)) + geom_histogram(fill='red', color='black') + stat_function(fun = dnorm, args = list(mean = mean(model2_step$residuals), sd = sd(model2_step$residuals))) + labs(title='Residual Histogram')
+ggplot(train1, aes(x=model2_step$residuals)) + geom_histogram(fill='gray', color='black') + stat_function(fun = dnorm, args = list(mean = mean(model2_step$residuals), sd = sd(model2_step$residuals))) + labs(title='Residual Histogram', x='Residuals', y='Count')
 
 # Making Predictions ------------------------------------------------------------------------------------------------------
 test1$MSRP_predictions <- predict(model2_step, newdata=test1)
@@ -503,7 +504,7 @@ optimal_testing_lambda = lasso_model$lambda[40] # Choosing a value similar to la
 test_predicted = predict(lasso_model, s=optimal_testing_lambda, newx=test_vars)
 
 # Test MSE for Lasso
-testMSE = mean((test_response - test_predicted)^2)
+testMSE = mean((exp(test_response) - exp(test_predicted))^2)
 testMSE # .2149
 
 # Define Coefficients
@@ -641,19 +642,24 @@ test_vars = data.matrix(test[,c(5,6,7,8,9,11,12,13,14,16,17,18)])
 validate_response = validate[,19]
 validate_vars = data.matrix(validate[,c(5,6,7,8,9,11,12,13,14,16,17,18)])
 
+tuneGrid <- expand.grid(k = seq(4, 9, by = 1))
+
 # KNN Test Regression ----------------------------------------------------------------------------------------------------
 test_model <- train(
   log_MSRP ~ .,
   data = train_knn,
   method = 'knn',
-  preProcess = c("center", "scale")
+  preProcess = c("center", "scale"),
+  tuneGrid = tuneGrid
 )
+
+plot(test_model)
 
 # Make Test Predictions
 test_predictions = predict(test_model, newdata = test_vars)
 
 # RMSE -- .0489
-mean((test_response - test_predictions)^2)
+mean((exp(test_response) - exp(test_predictions))^2)
 
 # R^2 -- .9611
 cor(test_response, test_predictions) ^ 2
@@ -721,7 +727,7 @@ ggplot(knn_val_results, aes(x=Actual_MSRP, y=Predicted_MSRP, color=Diff)) +
 # Test R-Squared
 # SIMPLE: .8460
 # LASSO:  .8199 (.8423 from lm() model made from variables from test LASSO)
-# KNN:    .9302
+# KNN:    .9476
 
 # Validation R-Squared
 # SIMPLE: N/A
@@ -730,13 +736,13 @@ ggplot(knn_val_results, aes(x=Actual_MSRP, y=Predicted_MSRP, color=Diff)) +
 
 # Test MSE
 # SIMPLE: .2409  /  2,306,091,868
-# LASSO:  .9068  /  2,076,796,529
-# KNN:    .0849  /    153,948,128
+# LASSO:  .2188  /    711,600,945
+# KNN:    .0799  /    109,058,785
 
 # Validation MSE
 # SIMPLE: N/A    /            N/A
 # LASSO:  .2068  /    785,269,607
-# KNN:    .0641  /    133,047,991
+# KNN:    .0396  /    133,047,991
 
 # Stepwise Chart
 ggplot(test1, aes(x=MSRP, y=MSRP_predictions, color=Diff)) + 
